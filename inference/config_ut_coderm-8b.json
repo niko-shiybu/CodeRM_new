@@ -1,0 +1,18 @@
+{
+    "model_path": "KAKA22/CodeRM-8B",
+    "dtype": "auto",
+    "max_model_len": 4096,
+    "gpu_memory_utilization": 0.8,
+    "max_num_seqs": 512,
+    "tensor_parallel_size": 1,
+    "sampling_params": {
+        "n": 100,
+        "max_tokens": 2048,
+        "top_p": 0.95,
+        "temperature": 0.8,
+        "stop": null
+    },
+    "num_gpus": 1,
+    "output_dir": "../output/inference/coderm-8b_unit_tests",
+    "messages_file": "../data/benchmark/input_humaneval+_ut.jsonl"
+}

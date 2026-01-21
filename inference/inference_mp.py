@@ -6,6 +6,48 @@ import torch.multiprocessing as mp
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
+# 支持从环境变量或配置文件读取 HuggingFace Token
+def setup_hf_token(config=None):
+    """设置 HuggingFace token，优先级：环境变量 > 配置文件 > 缓存文件"""
+    # 1. 检查环境变量
+    token = os.getenv('HF_TOKEN') or os.getenv('HUGGINGFACE_HUB_TOKEN')
+    if token:
+        os.environ['HF_TOKEN'] = token
+        os.environ['HUGGINGFACE_HUB_TOKEN'] = token
+        return token
+    
+    # 2. 检查配置文件
+    if config and 'hf_token' in config:
+        token = config['hf_token']
+        os.environ['HF_TOKEN'] = token
+        os.environ['HUGGINGFACE_HUB_TOKEN'] = token
+        return token
+    
+    # 3. 尝试从 HuggingFace 缓存读取（如果之前登录过）
+    cache_token_path = os.path.expanduser('~/.cache/huggingface/token')
+    if os.path.exists(cache_token_path):
+        try:
+            with open(cache_token_path, 'r') as f:
+                token = f.read().strip()
+                if token:
+                    os.environ['HF_TOKEN'] = token
+                    os.environ['HUGGINGFACE_HUB_TOKEN'] = token
+                    return token
+        except:
+            pass
+    
+    # 4. 如果没有找到 token，尝试使用 huggingface_hub 的登录状态
+    try:
+        from huggingface_hub import HfApi
+        api = HfApi()
+        # 如果能获取用户信息，说明已经登录
+        api.whoami()
+        return None  # 已登录，不需要设置 token
+    except:
+        pass
+    
+    return None
+
 def get_free_gpus(threshold=71920):
     output = subprocess.check_output("nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits", shell=True)
     gpu_free_memory = [int(x) for x in output.decode("utf-8").strip().split("\n")]
@@ -16,6 +58,9 @@ def get_free_gpus(threshold=71920):
 def ask_llm_worker(gpu_ids, process_id, config, messages_chunk):
     # set GPU id
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_ids
+
+    # 设置 HuggingFace token（如果需要）
+    setup_hf_token(config)
 
     # load to target GPU
     llm = LLM(
